@@ -3,9 +3,7 @@ package com.morseglyph.audio
 import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioTrack
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.withContext
 import kotlin.math.PI
 import kotlin.math.min
 import kotlin.math.sin
@@ -21,35 +19,35 @@ class AudioController {
 
     suspend fun beep(durationMs: Long) {
         if (!available) { delay(durationMs); return }
-        withContext(Dispatchers.IO) {
-            val numSamples = (sampleRate * durationMs / 1000.0).toInt()
-            val buffer = buildBuffer(numSamples)
-            try {
-                val track = AudioTrack.Builder()
-                    .setAudioAttributes(
-                        AudioAttributes.Builder()
-                            .setUsage(AudioAttributes.USAGE_MEDIA)
-                            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                            .build()
-                    )
-                    .setAudioFormat(
-                        AudioFormat.Builder()
-                            .setSampleRate(sampleRate)
-                            .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
-                            .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
-                            .build()
-                    )
-                    .setBufferSizeInBytes(buffer.size * 2)
-                    .setTransferMode(AudioTrack.MODE_STATIC)
-                    .build()
-                track.write(buffer, 0, buffer.size)
-                track.play()
-                delay(durationMs)
-                track.stop()
-                track.release()
-            } catch (e: Exception) {
-                available = false
-            }
+        val numSamples = (sampleRate * durationMs / 1000.0).toInt()
+        val buffer = buildBuffer(numSamples)
+        var track: AudioTrack? = null
+        try {
+            track = AudioTrack.Builder()
+                .setAudioAttributes(
+                    AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_MEDIA)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                        .build()
+                )
+                .setAudioFormat(
+                    AudioFormat.Builder()
+                        .setSampleRate(sampleRate)
+                        .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
+                        .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
+                        .build()
+                )
+                .setBufferSizeInBytes(buffer.size * 2)
+                .setTransferMode(AudioTrack.MODE_STATIC)
+                .build()
+            track.write(buffer, 0, buffer.size)
+            track.play()
+            delay(durationMs)
+        } catch (e: Exception) {
+            if (e !is kotlinx.coroutines.CancellationException) available = false
+        } finally {
+            try { track?.stop() } catch (_: Exception) {}
+            try { track?.release() } catch (_: Exception) {}
         }
     }
 

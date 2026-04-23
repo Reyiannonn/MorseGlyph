@@ -11,6 +11,7 @@ class GlyphController(
     private val onBindFailed: () -> Unit
 ) : DefaultLifecycleObserver {
 
+    @Volatile
     var available = false
         private set
 
@@ -72,7 +73,11 @@ class GlyphController(
 
     suspend fun flashOff(durationMs: Long) {
         if (!available) { delay(durationMs); return }
-        try { setAllChannels(0) } catch (_: Exception) {}
+        try {
+            setAllChannels(0)
+        } catch (_: Exception) {
+            available = false
+        }
         delay(durationMs)
     }
 
@@ -86,11 +91,11 @@ class GlyphController(
         try {
             val builderMethod = mgr.javaClass.getMethod("getGlyphFrameBuilder")
             val builder = builderMethod.invoke(mgr) ?: return
+            val buildChannelMethod = try {
+                builder.javaClass.getMethod("buildChannel", Int::class.java, Int::class.java)
+            } catch (_: Exception) { null } ?: return
             for (i in 0 until 25) {
-                try {
-                    builder.javaClass.getMethod("buildChannel", Int::class.java, Int::class.java)
-                        .invoke(builder, i, brightness)
-                } catch (_: Exception) {}
+                try { buildChannelMethod.invoke(builder, i, brightness) } catch (_: Exception) {}
             }
             val frame = builder.javaClass.getMethod("build").invoke(builder)
             mgr.javaClass.getMethod("toggle", frame!!.javaClass).invoke(mgr, frame)

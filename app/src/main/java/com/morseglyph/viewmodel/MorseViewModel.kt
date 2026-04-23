@@ -49,7 +49,7 @@ class MorseViewModel(
     fun onWpmChange(wpm: Int) {
         prefsRepository.saveWpm(wpm)
         val words = _uiState.value.morseWords
-        val unitMs = 1200L / wpm
+        val unitMs = unitMs(wpm)
         _uiState.update { it.copy(
             wpm = wpm,
             transmitEvents = MorseTranslator.toTransmitEvents(words, unitMs)
@@ -71,36 +71,35 @@ class MorseViewModel(
         if (events.isEmpty()) return
 
         transmissionJob = viewModelScope.launch {
-            _uiState.update { it.copy(
-                transmissionState = TransmissionState.TRANSMITTING,
-                inputError = null,
-                snackbarMessage = null
-            )}
-            events.forEachIndexed { index, event ->
-                _uiState.update { it.copy(activeEventIndex = index) }
-                when (val sym = event.symbol) {
-                    is TimedSymbol.Tone -> coroutineScope {
-                        launch { glyphController.flashOn(sym.durationMs) }
-                        launch { audioController.beep(sym.durationMs) }
+            try {
+                _uiState.update { it.copy(
+                    transmissionState = TransmissionState.TRANSMITTING,
+                    inputError = null,
+                    snackbarMessage = null
+                )}
+                events.forEachIndexed { index, event ->
+                    _uiState.update { it.copy(activeEventIndex = index) }
+                    when (val sym = event.symbol) {
+                        is TimedSymbol.Tone -> coroutineScope {
+                            launch { glyphController.flashOn(sym.durationMs) }
+                            launch { audioController.beep(sym.durationMs) }
+                        }
+                        is TimedSymbol.Silence -> glyphController.flashOff(sym.durationMs)
                     }
-                    is TimedSymbol.Silence -> glyphController.flashOff(sym.durationMs)
                 }
+            } finally {
+                glyphController.turnOffImmediate()
+                _uiState.update { it.copy(
+                    transmissionState = TransmissionState.IDLE,
+                    activeEventIndex = -1
+                )}
             }
-            glyphController.turnOffImmediate()
-            _uiState.update { it.copy(
-                transmissionState = TransmissionState.IDLE,
-                activeEventIndex = -1
-            )}
         }
     }
 
     fun stop() {
         transmissionJob?.cancel()
-        glyphController.turnOffImmediate()
-        _uiState.update { it.copy(
-            transmissionState = TransmissionState.IDLE,
-            activeEventIndex = -1
-        )}
+        // IDLE state and glyph cleanup handled by the try/finally in transmit()
     }
 
     fun onGlyphBindFailed() {
@@ -111,5 +110,5 @@ class MorseViewModel(
         _uiState.update { it.copy(snackbarMessage = null) }
     }
 
-    private fun unitMs(): Long = 1200L / _uiState.value.wpm
+    private fun unitMs(wpm: Int = _uiState.value.wpm): Long = 1200L / wpm.coerceAtLeast(1)
 }

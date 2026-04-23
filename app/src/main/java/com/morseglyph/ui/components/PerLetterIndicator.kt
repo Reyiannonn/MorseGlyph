@@ -54,20 +54,23 @@ fun PerLetterIndicator(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                currentLetter?.symbols?.forEachIndexed { sIdx, sym ->
-                    val isActive = toneEvent?.symbolIndexInLetter == sIdx
-                    val alpha by animateFloatAsState(
-                        targetValue = if (isActive) 1f else 0.25f,
-                        animationSpec = tween(40),
-                        label = "sym_alpha_$sIdx"
-                    )
-                    Text(
-                        text = if (sym == MorseSymbol.DOT) "·" else "—",
-                        fontSize = if (isActive) 26.sp else 20.sp,
-                        color = Color.White.copy(alpha = alpha),
-                        fontFamily = RobotoMono
-                    )
-                } ?: run {
+                val symbols = currentLetter?.symbols
+                if (!symbols.isNullOrEmpty()) {
+                    symbols.forEachIndexed { sIdx, sym ->
+                        val isActive = toneEvent?.symbolIndexInLetter == sIdx
+                        val alpha by animateFloatAsState(
+                            targetValue = if (isActive) 1f else 0.25f,
+                            animationSpec = tween(40),
+                            label = "sym_alpha_$sIdx"
+                        )
+                        Text(
+                            text = if (sym == MorseSymbol.DOT) "·" else "—",
+                            fontSize = if (isActive) 26.sp else 20.sp,
+                            color = Color.White.copy(alpha = alpha),
+                            fontFamily = RobotoMono
+                        )
+                    }
+                } else {
                     Text(text = "—", fontSize = 20.sp, color = NothingInactive, fontFamily = RobotoMono)
                 }
             }

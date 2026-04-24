@@ -3,11 +3,16 @@ package com.morseglyph.ui.components
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ContentPaste
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.morseglyph.ui.theme.NothingAccent
@@ -24,6 +29,7 @@ fun MessageInputField(
     error: String?,
     modifier: Modifier = Modifier
 ) {
+    val clipboard = LocalClipboardManager.current
     val isError = error != null
     Column(modifier = modifier) {
         OutlinedTextField(
@@ -36,6 +42,19 @@ fun MessageInputField(
                     fontSize = 11.sp,
                     letterSpacing = 2.sp
                 )
+            },
+            trailingIcon = {
+                IconButton(onClick = {
+                    val pasted = clipboard.getText()?.text ?: return@IconButton
+                    val combined = (value + pasted).take(100)
+                    onValueChange(combined)
+                }) {
+                    Icon(
+                        imageVector = Icons.Filled.ContentPaste,
+                        contentDescription = "Paste",
+                        tint = NothingDim
+                    )
+                }
             },
             isError = isError,
             supportingText = {

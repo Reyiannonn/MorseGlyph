@@ -24,6 +24,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.morseglyph.ui.components.DotMatrixHeader
+import com.morseglyph.ui.components.GlyphUnavailableBanner
+import com.morseglyph.ui.components.HistoryChips
 import com.morseglyph.ui.components.IndicatorModeSelector
 import com.morseglyph.ui.components.LiveIndicator
 import com.morseglyph.ui.components.MessageInputField
@@ -73,6 +75,10 @@ fun MorseScreen(viewModel: MorseViewModel) {
         ) {
             DotMatrixHeader(modifier = Modifier.fillMaxWidth())
 
+            if (state.glyphUnavailable) {
+                GlyphUnavailableBanner()
+            }
+
             Text(
                 text = "MORSEGLYPH",
                 color = NothingAccent,
@@ -101,6 +107,22 @@ fun MorseScreen(viewModel: MorseViewModel) {
                     onValueChange = { viewModel.onInputTextChange(it) },
                     error = state.inputError
                 )
+
+                if (state.messageHistory.isNotEmpty()) {
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        text = "RECENT",
+                        color = NothingDim,
+                        fontFamily = RobotoMono,
+                        fontSize = 9.sp,
+                        letterSpacing = 2.sp
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    HistoryChips(
+                        history = state.messageHistory,
+                        onSelect = { viewModel.onInputTextChange(it) }
+                    )
+                }
 
                 Spacer(Modifier.height(12.dp))
 
@@ -143,8 +165,11 @@ fun MorseScreen(viewModel: MorseViewModel) {
 
                 TransmitStopRow(
                     transmissionState = state.transmissionState,
+                    loopMode = state.loopMode,
+                    onLoopModeChange = { viewModel.onLoopModeChange(it) },
                     onTransmit = { viewModel.transmit() },
-                    onStop = { viewModel.stop() }
+                    onStop = { viewModel.stop() },
+                    onSos = { viewModel.transmitSos() }
                 )
 
                 Spacer(Modifier.height(24.dp))

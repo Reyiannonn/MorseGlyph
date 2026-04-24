@@ -3,6 +3,8 @@ package com.morseglyph.audio
 import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioTrack
+import android.util.Log
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlin.math.PI
 import kotlin.math.min
@@ -14,11 +16,7 @@ class AudioController {
     private val frequency = 700.0
     private val amplitude = 0.7
 
-    var available = true
-        private set
-
     suspend fun beep(durationMs: Long) {
-        if (!available) { delay(durationMs); return }
         val numSamples = (sampleRate * durationMs / 1000.0).toInt()
         val buffer = buildBuffer(numSamples)
         var track: AudioTrack? = null
@@ -43,8 +41,11 @@ class AudioController {
             track.write(buffer, 0, buffer.size)
             track.play()
             delay(durationMs)
+        } catch (e: CancellationException) {
+            throw e  // must propagate for coroutine cancellation to work
         } catch (e: Exception) {
-            if (e !is kotlinx.coroutines.CancellationException) available = false
+            Log.e("AudioController", "beep failed", e)
+            delay(durationMs)  // keep timing intact even on error
         } finally {
             try { track?.stop() } catch (_: Exception) {}
             try { track?.release() } catch (_: Exception) {}

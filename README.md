@@ -1,57 +1,46 @@
 # MorseGlyph
 
-A Nothing OS–inspired Android app that translates text into Morse code and simultaneously:
-- Flashes the **Nothing Phone (3) Glyph Matrix** (dots = short flash, dashes = long flash)
-- Plays **700 Hz sine-wave beep tones** via AudioTrack
+Translates text into Morse code and transmits it through the Nothing Phone Glyph Matrix — light and sound at the same time.
 
 ---
 
-## Prerequisites
+## Requirements
 
-### 1. Download the GlyphMatrix SDK AAR
+- Nothing Phone with Glyph Matrix support (Phone 2 / 2a / 3 series)
+- `glyph-matrix-sdk-2.0.aar` placed in `app/libs/` — download from the [GlyphMatrix Developer Kit](https://github.com/Nothing-Developer-Programme/GlyphMatrix-Developer-Kit)
+- Android Studio Hedgehog or newer
 
-1. Visit: https://github.com/Nothing-Developer-Programme/GlyphMatrix-Developer-Kit
-2. Download the latest release AAR (e.g. `glyph-matrix-sdk-x.x.x.aar`)
-3. Copy it to `app/libs/` (rename if needed — the build picks up all `*.aar` files in that directory)
-
-> **Without the AAR the project will not compile.** The app runs in audio-only mode on non-Nothing-Phone-3 devices.
-
-### 2. Verify SDK API
-
-After downloading, open the AAR's bundled docs or `classes.jar` and confirm the package name used in `GlyphController.kt` (`com.nothing.ketchum`) matches what the AAR exports. Adjust imports/calls in `GlyphController.kt` if they differ.
+The project won't compile without the AAR. On non-Nothing devices it falls back to audio only.
 
 ---
 
-## Enable Glyph on Nothing Phone (3)
+## Glyph setup
 
-1. Go to **Settings → Glyph Interface → Glyph Toys**
-2. Find **MorseGlyph** and enable it
-3. Grant the Glyph permission prompt when the app first runs
+Go to **Settings → Glyph Interface → Glyph Toys**, find MorseGlyph and enable it. Grant the permission on first launch.
 
 ---
 
-## Build & Run
+## Features
 
-```bash
-# From project root
-./gradlew assembleDebug
-adb install app/build/outputs/apk/debug/app-debug.apk
-```
-
-Or open in **Android Studio** → click **Run**.
-
-Minimum Android: **8.0 (API 26)**. Target: **API 35**.
+- Type any message (up to 100 characters) and see the Morse translation live
+- Three indicator modes: **Symbol** (dot/dash pixel pattern per tone), **Full** (solid flash), **Per-letter** (full letter shown as pixel grid while it plays)
+- Adjustable speed from 5 to 30 WPM — persists between sessions
+- **Loop mode** — keeps repeating until you press stop
+- **SOS button** — one tap, no typing needed
+- Paste from clipboard directly into the input
+- Last 10 transmitted messages saved as quick-select chips
+- Persistent banner if the Glyph service isn't available, with a shortcut to Nothing Settings
+- First-launch onboarding (3 pages, never shown again after that)
 
 ---
 
-## Usage
+## How it works
 
-1. Type a message in the input field (max 100 characters)
-2. The Morse translation appears below automatically
-3. Pick an **indicator mode**: Symbol / Full / Letter
-4. Adjust **WPM** (5–30, persists between launches)
-5. Tap **TRANSMIT** — glyph flashes + beeps play simultaneously
-6. Tap **STOP** to cancel at any time
+The Glyph Matrix is a grid of individually addressable LEDs. MorseGlyph maps each Morse symbol to a pixel pattern — a small circle for a dot, a horizontal bar for a dash — and pushes that frame to the matrix for exactly the duration of the tone, then clears it. Per-letter mode subdivides the full grid into N equal cells (one per symbol in the letter) and renders them all at once.
+
+Audio runs in parallel via `AudioTrack` — a 700 Hz sine wave with a 5 ms fade-in/out to avoid clicks.
+
+The Glyph service connection lives on `onCreate`/`onDestroy`, not `onStart`/`onStop`, so turning the screen off mid-transmission doesn't kill it. A `PARTIAL_WAKE_LOCK` keeps the CPU running while the screen is off.
 
 ---
 
@@ -59,18 +48,13 @@ Minimum Android: **8.0 (API 26)**. Target: **API 35**.
 
 ```
 MainActivity
-  └── MorseScreen (Compose)
-       └── MorseViewModel (StateFlow)
-            ├── MorseTranslator  (pure Kotlin, zero Android deps)
-            ├── GlyphController  (GlyphMatrix SDK via reflection, LifecycleObserver)
-            ├── AudioController  (AudioTrack, 700 Hz sine wave)
-            └── SharedPrefsRepository (WPM + indicator mode persistence)
+  ├── OnboardingScreen       first launch only
+  └── MorseScreen            main UI, driven by StateFlow
+       └── MorseViewModel
+            ├── MorseTranslator        pure Kotlin, no Android deps
+            ├── GlyphController        GlyphMatrixManager, LifecycleObserver
+            ├── AudioController        AudioTrack, 700 Hz sine wave
+            └── SharedPrefsRepository  settings + history + onboarding flag
+
+MorseGlyphToyService         registered as a Nothing Glyph Toy
 ```
-
----
-
-## Screenshots
-
-| Idle | Transmitting — Full String | Transmitting — Per Letter |
-|------|---------------------------|--------------------------|
-| _(add screenshot)_ | _(add screenshot)_ | _(add screenshot)_ |

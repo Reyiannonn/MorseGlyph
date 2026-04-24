@@ -29,7 +29,8 @@ class MorseViewModel(
     init {
         _uiState.update { it.copy(
             wpm = prefsRepository.getWpm(),
-            indicatorMode = prefsRepository.getIndicatorMode()
+            indicatorMode = prefsRepository.getIndicatorMode(),
+            messageHistory = prefsRepository.getHistory()
         )}
     }
 
@@ -61,14 +62,22 @@ class MorseViewModel(
         _uiState.update { it.copy(indicatorMode = mode) }
     }
 
+    fun onLoopModeChange(enabled: Boolean) {
+        _uiState.update { it.copy(loopMode = enabled) }
+    }
+
     fun transmit() {
         val state = _uiState.value
+        if (state.transmissionState == TransmissionState.TRANSMITTING) return
         if (state.inputText.isBlank()) {
             _uiState.update { it.copy(inputError = "Enter a message") }
             return
         }
         val events = state.transmitEvents
         if (events.isEmpty()) return
+
+        prefsRepository.addToHistory(state.inputText)
+        _uiState.update { it.copy(messageHistory = prefsRepository.getHistory()) }
 
         transmissionJob = viewModelScope.launch {
             try {
@@ -77,16 +86,30 @@ class MorseViewModel(
                     inputError = null,
                     snackbarMessage = null
                 )}
-                events.forEachIndexed { index, event ->
-                    _uiState.update { it.copy(activeEventIndex = index) }
-                    when (val sym = event.symbol) {
-                        is TimedSymbol.Tone -> coroutineScope {
-                            launch { glyphController.flashOn(sym.durationMs) }
-                            launch { audioController.beep(sym.durationMs) }
+                do {
+                    events.forEachIndexed { index, event ->
+                        _uiState.update { it.copy(activeEventIndex = index) }
+                        when (val sym = event.symbol) {
+                            is TimedSymbol.Tone -> coroutineScope {
+                                val mode = _uiState.value.indicatorMode
+                                val symbolType = if (mode == IndicatorMode.SYMBOL) event.symbolType else null
+                                val letterSymbols = if (mode == IndicatorMode.PER_LETTER) {
+                                    _uiState.value.morseWords
+                                        .getOrNull(event.wordIndex)
+                                        ?.letters?.getOrNull(event.letterIndex)
+                                        ?.symbols
+                                } else null
+                                launch { glyphController.flashOn(sym.durationMs, symbolType, letterSymbols) }
+                                launch { audioController.beep(sym.durationMs) }
+                            }
+                            is TimedSymbol.Silence -> glyphController.flashOff(sym.durationMs)
                         }
-                        is TimedSymbol.Silence -> glyphController.flashOff(sym.durationMs)
                     }
-                }
+                    if (_uiState.value.loopMode) {
+                        _uiState.update { it.copy(activeEventIndex = -1) }
+                        glyphController.flashOff(7 * unitMs())
+                    }
+                } while (_uiState.value.loopMode)
             } finally {
                 glyphController.turnOffImmediate()
                 _uiState.update { it.copy(
@@ -97,13 +120,20 @@ class MorseViewModel(
         }
     }
 
+    fun transmitSos() {
+        onInputTextChange("SOS")
+        transmit()
+    }
+
     fun stop() {
         transmissionJob?.cancel()
-        // IDLE state and glyph cleanup handled by the try/finally in transmit()
     }
 
     fun onGlyphBindFailed() {
-        _uiState.update { it.copy(snackbarMessage = "Glyph unavailable — audio only") }
+        _uiState.update { it.copy(
+            glyphUnavailable = true,
+            snackbarMessage = "Glyph unavailable — audio only"
+        )}
     }
 
     fun clearSnackbar() {

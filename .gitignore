@@ -1,1 +1,22 @@
-.worktrees/
+# Build outputs
+app/build/
+build/
+.gradle/
+
+# Android Studio / IntelliJ
+.idea/
+*.iml
+
+# Local config — machine-specific, never commit
+local.properties
+keystore.properties
+
+# Nothing GlyphMatrix SDK AAR — download separately (see README)
+app/libs/*.aar
+
+# Logs
+*.logcat
+
+# Claude internal
+.claude/
+docs/superpowers/

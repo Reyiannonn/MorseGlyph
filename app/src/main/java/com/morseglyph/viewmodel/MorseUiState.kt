@@ -12,6 +12,9 @@ data class MorseUiState(
     val activeEventIndex: Int = -1,
     val wpm: Int = 15,
     val indicatorMode: IndicatorMode = IndicatorMode.FULL_STRING,
+    val loopMode: Boolean = false,
+    val messageHistory: List<String> = emptyList(),
+    val glyphUnavailable: Boolean = false,
     val inputError: String? = null,
     val snackbarMessage: String? = null
 )

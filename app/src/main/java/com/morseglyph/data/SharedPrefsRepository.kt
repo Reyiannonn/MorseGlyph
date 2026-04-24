@@ -20,4 +20,29 @@ class SharedPrefsRepository(context: Context) {
     fun saveIndicatorMode(mode: IndicatorMode) {
         prefs.edit().putString("indicator_mode", mode.name).apply()
     }
+
+    fun getHistory(): List<String> {
+        val raw = prefs.getStringSet("history", emptySet()) ?: emptySet()
+        val indexed = raw.mapNotNull { entry ->
+            val sep = entry.indexOf('|')
+            if (sep < 0) null else entry.substring(0, sep).toIntOrNull()?.let { it to entry.substring(sep + 1) }
+        }
+        return indexed.sortedByDescending { it.first }.map { it.second }
+    }
+
+    fun addToHistory(message: String) {
+        if (message.isBlank()) return
+        val current = getHistory().toMutableList()
+        current.remove(message)
+        current.add(0, message)
+        val trimmed = current.take(10)
+        val raw = trimmed.mapIndexed { i, s -> "${trimmed.size - 1 - i}|$s" }.toSet()
+        prefs.edit().putStringSet("history", raw).apply()
+    }
+
+    fun isFirstLaunch(): Boolean = prefs.getBoolean("first_launch", true)
+
+    fun markOnboarded() {
+        prefs.edit().putBoolean("first_launch", false).apply()
+    }
 }
